@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = "https://db0kffoalfc6g8.database.nocode.cn";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzQ2OTc5MjAwLCJleHAiOjE5MDQ3NDU2MDB9.uKLitEMtJK8GEU6DvpipEIqMfvw-AuKauMK5ov6CViU";
+// Use Vite environment variables so the app can switch between remote and local Supabase easily.
+// Set these in a `.env` file at project root (for development) or in your deployment environment:
+// VITE_SUPABASE_URL=http://localhost:54321
+// VITE_SUPABASE_ANON_KEY=your-anon-key
+// When not provided, the code falls back to a sensible localhost URL for `supabase start`.
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'http://localhost:54321';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

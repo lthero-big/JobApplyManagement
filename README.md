@@ -150,3 +150,57 @@ docker volume ls
 1. 如果端口冲突，请修改 `docker-compose.yml` 中的端口映射
 2. 如果数据库连接失败，请检查环境变量配置
 3. 如果应用无法启动，请查看日志以获取详细错误信息
+
+## 使用本地 Supabase
+
+如果你想在本地运行 Supabase（开发环境），参见 `LOCAL_SUPABASE_SETUP.md` 获取详细步骤，或运行 `npm run supabase:start` 来启动本地 Supabase（需要安装 Supabase CLI）。
+
+也可以使用本仓库提供的 Docker Compose 文件一键启动一个开发用的 Supabase stack：
+
+1. 复制示例 env 文件并调整：
+
+```bash
+cp .env.supabase.example .env.supabase
+# 编辑 .env.supabase，确保端口/密码等设置符合你的需求
+```
+
+2. 启动 Docker Supabase stack：
+
+```bash
+npm run docker:supabase:up
+```
+
+3. 停止并清理：
+
+```bash
+npm run docker:supabase:down
+```
+
+Adminer (数据库 GUI) 会在 `http://localhost:8081` 可用，连接到 `db` 服务（Postgres 默认端口 5432 / 在宿主机上映射为 54321）。
+
+注意：某些 Supabase 相关镜像（例如 `supabase/gotrue:latest`）在 Docker Hub 并不总是存在或可用，直接 `docker compose up` 可能会因为找不到镜像 manifest 而失败，出现类似：
+
+```
+manifest for supabase/gotrue:latest not found: manifest unknown
+```
+
+解决办法：
+
+- 推荐（开发）：使用 Supabase CLI（`supabase start`），它会自动拉取并配置本地开发所需的组件；或者使用官方 self-host 指南得到稳定镜像标签。
+- 若使用本仓库的 `docker-compose.yml`，将 Supabase 子服务设为可选 profile：
+
+```bash
+# 启动仅 app + db（默认）
+docker compose up -d
+
+# 启动 app + db + supabase profile 中的服务
+docker compose --profile supabase up -d
+```
+
+或者在 `package.json` 中使用封装脚本：
+
+```bash
+npm run docker:supabase:up
+```
+
+如果你想让我把所有 Supabase 镜像替换为已知的固定 tag（并添加重试/健康检查），我可以替你把 `latest` 替换为稳定 tag 并验证可用性。

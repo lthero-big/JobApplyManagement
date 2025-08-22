@@ -8,6 +8,11 @@
   },
   "scripts": {
     "dev": "vite",
+  "supabase:start": "supabase start",
+  "supabase:stop": "supabase stop",
+  "supabase:health": "curl -sS http://localhost:54321/welcome || echo 'supabase not reachable'",
+  "docker:supabase:up": "docker compose -f docker-compose.supabase.yml --env-file .env.supabase up -d",
+  "docker:supabase:down": "docker compose -f docker-compose.supabase.yml --env-file .env.supabase down",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
