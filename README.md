@@ -1,3 +1,17 @@
+
+
+# 简历投递管理器
+
+> 打造一个专为应届毕业生设计的求职管理系统，旨在解决求职过程中简历投递混乱、进度跟踪困难的核心痛点
+
+
+
+# 效果图
+
+![img](image.png)
+
+
+
 # 部署说明
 
 ## Node.js 部署
@@ -12,8 +26,8 @@
 1. 克隆项目代码到服务器：
 
    ```bash
-   git clone <项目地址>
-   cd <项目目录>
+   git clone https://github.com/lthero-big/JobApplyManagement
+   cd JobApplyManagement
    ```
 
 2. 安装依赖：
@@ -76,8 +90,8 @@
 1. 克隆项目代码到本地：
 
    ```bash
-   git clone <项目地址>
-   cd <项目目录>
+   git clone https://github.com/lthero-big/JobApplyManagement
+   cd JobApplyManagement
    ```
 
 2. 构建并启动 Docker 容器：
