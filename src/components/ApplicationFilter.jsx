@@ -15,6 +15,7 @@ const ApplicationFilter = ({ onFilterChange, onReset }) => {
     company: '',
     base: '',
     status: '',
+    position: '',
     applicationDateStart: null,
     applicationDateEnd: null,
     updateDateStart: null,
@@ -48,6 +49,7 @@ const ApplicationFilter = ({ onFilterChange, onReset }) => {
       company: '',
       base: '',
       status: '',
+      position: '',
       applicationDateStart: null,
       applicationDateEnd: null,
       updateDateStart: null,
@@ -59,6 +61,7 @@ const ApplicationFilter = ({ onFilterChange, onReset }) => {
 
   return (
     <div className="bg-white p-4 rounded-lg shadow mb-6">
+      {/* 第一行筛选条件 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         {/* 公司名称 */}
         <div>
@@ -100,9 +103,23 @@ const ApplicationFilter = ({ onFilterChange, onReset }) => {
           </Select>
         </div>
 
+        {/* 岗位 */}
+        <div>
+          <Label htmlFor="position">岗位</Label>
+          <Input
+            id="position"
+            placeholder="搜索岗位..."
+            value={filters.position}
+            onChange={(e) => handleInputChange('position', e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* 第二行筛选条件 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         {/* 投递日期 */}
         <div>
-          <Label>投递日期</Label>
+          <Label className="block mb-2">投递日期</Label>
           <div className="flex space-x-2">
             <Popover>
               <PopoverTrigger asChild>
@@ -176,7 +193,7 @@ const ApplicationFilter = ({ onFilterChange, onReset }) => {
 
         {/* 更新日期 */}
         <div>
-          <Label>更新日期</Label>
+          <Label className="block mb-2">更新日期</Label>
           <div className="flex space-x-2">
             <Popover>
               <PopoverTrigger asChild>
