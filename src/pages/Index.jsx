@@ -13,6 +13,7 @@ import ApplicationTable from '@/components/ApplicationTable';
 import ApplicationForm from '@/components/ApplicationForm';
 import ProgressTracker from '@/components/ProgressTracker';
 import InterviewStatusBoard from '@/components/InterviewStatusBoard';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const Index = () => {
   const [applications, setApplications] = useState([]);
@@ -21,6 +22,7 @@ const Index = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingApplication, setEditingApplication] = useState(null);
   const [viewingApplication, setViewingApplication] = useState(null);
+  const [activeTab, setActiveTab] = useState('applications');
 
   // 初始化数据
   useEffect(() => {
@@ -99,29 +101,44 @@ const Index = () => {
           </Button>
         </div>
 
-        <ProgressTracker applications={applications} />
-
-        <div className="mb-6">
-          <ApplicationFilter 
-            onFilterChange={handleFilterChange} 
-            onReset={handleResetFilters} 
-          />
-        </div>
-
-        <div className="mb-8">
-          <ApplicationTable 
-            applications={filteredApplications}
-            onEdit={handleEditApplication}
-            onDelete={handleDeleteApplication}
-            onViewDetails={handleViewDetails}
-            onUpdateStatus={handleUpdateStatus}
-          />
-        </div>
-
-        <InterviewStatusBoard 
-          applications={applications} 
-          onDelete={handleDeleteApplication} 
-        />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="applications">投递记录</TabsTrigger>
+            <TabsTrigger value="interview-board">面试状态看板</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="applications">
+            <div className="mt-6">
+              <ProgressTracker applications={applications} />
+              
+              <div className="mb-6">
+                <ApplicationFilter 
+                  onFilterChange={handleFilterChange} 
+                  onReset={handleResetFilters} 
+                />
+              </div>
+              
+              <div className="mb-8">
+                <ApplicationTable 
+                  applications={filteredApplications}
+                  onEdit={handleEditApplication}
+                  onDelete={handleDeleteApplication}
+                  onViewDetails={handleViewDetails}
+                  onUpdateStatus={handleUpdateStatus}
+                />
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="interview-board">
+            <div className="mt-6">
+              <InterviewStatusBoard 
+                applications={applications} 
+                onDelete={handleDeleteApplication} 
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <ApplicationForm
           open={isFormOpen}
