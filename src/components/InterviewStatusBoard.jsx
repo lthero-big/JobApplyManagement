@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2 } from 'lucide-react';
+import { Trash2, FileText } from 'lucide-react';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { statusOptions } from '@/lib/jobApplicationStore';
 import ConfirmDelete from '@/components/ConfirmDelete';
+import NotesModal from '@/components/NotesModal';
+import { updateApplication } from '@/lib/jobApplicationStore';
+import { toast } from 'sonner';
 
 const statusFlow = [
   '简历投递',
@@ -34,6 +37,13 @@ const InterviewStatusBoard = ({ applications, onDelete }) => {
     isOpen: false,
     applicationId: null
   });
+  
+  const [notesModal, setNotesModal] = useState({
+    isOpen: false,
+    applicationId: null,
+    status: '',
+    notes: ''
+  });
 
   const handleDeleteClick = (id) => {
     setDeleteConfirmation({
@@ -57,6 +67,41 @@ const InterviewStatusBoard = ({ applications, onDelete }) => {
       isOpen: false,
       applicationId: null
     });
+  };
+
+  const handleNotesClick = (applicationId, status) => {
+    const application = applications.find(app => app.id === applicationId);
+    const statusHistory = application.statusHistory?.find(item => item.status === status);
+    const notes = statusHistory?.notes || '';
+    
+    setNotesModal({
+      isOpen: true,
+      applicationId,
+      status,
+      notes
+    });
+  };
+
+  const handleSaveNotes = (notes) => {
+    try {
+      // 更新应用状态历史中的备注
+      const application = applications.find(app => app.id === notesModal.applicationId);
+      if (application) {
+        const updatedStatusHistory = application.statusHistory.map(item => 
+          item.status === notesModal.status 
+            ? { ...item, notes } 
+            : item
+        );
+        
+        updateApplication(notesModal.applicationId, { 
+          statusHistory: updatedStatusHistory 
+        });
+        
+        toast.success('备注保存成功');
+      }
+    } catch (error) {
+      toast.error('保存备注失败');
+    }
   };
 
   return (
@@ -89,12 +134,23 @@ const InterviewStatusBoard = ({ applications, onDelete }) => {
                     const statusHistory = application.statusHistory?.find(item => item.status === status);
                     const color = statusHistory ? statusHistory.color : 'gray';
                     const date = statusHistory ? statusHistory.date : '';
+                    const hasNotes = statusHistory?.notes && statusHistory.notes.trim() !== '';
                     
                     return (
                       <React.Fragment key={status}>
                         <div className="flex flex-col items-center">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getStatusColor(color)} text-white text-xs`}>
-                            {statusHistory ? '✓' : index + 1}
+                          <div className="flex items-center">
+                            <div 
+                              className={`w-8 h-8 rounded-full flex items-center justify-center ${getStatusColor(color)} text-white text-xs relative cursor-pointer`}
+                              onClick={() => handleNotesClick(application.id, status)}
+                            >
+                              {statusHistory ? '✓' : index + 1}
+                              {hasNotes && (
+                                <FileText 
+                                  className="absolute -top-1 -right-1 h-3 w-3 text-blue-500 bg-white rounded-full" 
+                                />
+                              )}
+                            </div>
                           </div>
                           <div className="text-xs mt-1 text-center w-20">
                             <StatusBadge status={status} />
@@ -127,6 +183,14 @@ const InterviewStatusBoard = ({ applications, onDelete }) => {
         onOpenChange={(open) => setDeleteConfirmation(prev => ({ ...prev, isOpen: open }))}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
+      />
+      
+      <NotesModal
+        isOpen={notesModal.isOpen}
+        onOpenChange={(open) => setNotesModal(prev => ({ ...prev, isOpen: open }))}
+        status={notesModal.status}
+        initialNotes={notesModal.notes}
+        onSave={handleSaveNotes}
       />
     </Card>
   );

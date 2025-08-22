@@ -35,9 +35,9 @@ const ProgressTracker = ({ applications }) => {
 
   // 计算整体进度
   const totalApplications = applications.length;
-  const completedApplications = applications.filter(app => app.status === '入职').length;
+  const offerGrantedApplications = applications.filter(app => app.status === 'Offer发放').length;
   const rejectedApplications = applications.filter(app => app.status === '已拒绝').length;
-  const inProgressApplications = totalApplications - completedApplications - rejectedApplications;
+  const inProgressApplications = totalApplications - offerGrantedApplications - rejectedApplications;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -65,11 +65,11 @@ const ProgressTracker = ({ applications }) => {
             </div>
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium">已入职</span>
-                <span className="text-sm font-medium">{completedApplications}</span>
+                <span className="text-sm font-medium">Offer发放</span>
+                <span className="text-sm font-medium">{offerGrantedApplications}</span>
               </div>
               <Progress 
-                value={totalApplications > 0 ? (completedApplications / totalApplications) * 100 : 0} 
+                value={totalApplications > 0 ? (offerGrantedApplications / totalApplications) * 100 : 0} 
                 className="h-2" 
               />
             </div>
