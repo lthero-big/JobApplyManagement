@@ -12,8 +12,8 @@
 1. 克隆项目代码到服务器：
 
    ```bash
-   git clone <项目地址>
-   cd <项目目录>
+   git clone https://github.com/lthero-big/JobApplyManagement
+   cd JobApplyManagement
    ```
 
 2. 安装依赖：
@@ -76,8 +76,8 @@
 1. 克隆项目代码到本地：
 
    ```bash
-   git clone <项目地址>
-   cd <项目目录>
+   git clone https://github.com/lthero-big/JobApplyManagement
+   cd JobApplyManagement
    ```
 
 2. 构建并启动 Docker 容器：
