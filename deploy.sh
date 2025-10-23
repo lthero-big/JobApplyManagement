@@ -120,18 +120,26 @@ check_database() {
     
     # 从 .env 文件读取数据库配置
     if [ -f ".env" ]; then
-        source .env
+        # 使用 grep 而不是 source 来避免变量污染
+        DB_USER=$(grep "^DB_USER=" .env | cut -d '=' -f2)
+        DB_NAME=$(grep "^DB_NAME=" .env | cut -d '=' -f2)
+        DB_HOST=$(grep "^DB_HOST=" .env | cut -d '=' -f2)
+        DB_PASSWORD=$(grep "^DB_PASSWORD=" .env | cut -d '=' -f2)
     fi
     
-    local DB_USER=${DB_USER:-lthero}
-    local DB_NAME=${DB_NAME:-job_tracker}
-    local DB_HOST=${DB_HOST:-localhost}
+    # 使用默认值
+    DB_USER=${DB_USER:-lthero}
+    DB_NAME=${DB_NAME:-job_tracker}
+    DB_HOST=${DB_HOST:-localhost}
+    DB_PASSWORD=${DB_PASSWORD:-}
     
-    if psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" > /dev/null 2>&1; then
+    # 使用 PGPASSWORD 环境变量提供密码
+    if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" > /dev/null 2>&1; then
         print_success "数据库连接正常"
     else
         print_warning "数据库连接失败"
         print_info "请确保 PostgreSQL 正在运行并且配置正确"
+        print_info "数据库配置: 主机=$DB_HOST 用户=$DB_USER 数据库=$DB_NAME"
         
         read -p "是否继续部署？(y/N) " -n 1 -r
         echo
