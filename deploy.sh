@@ -169,19 +169,27 @@ install_dependencies() {
 start_backend() {
     print_header "启动后端服务"
     
+    # 确保日志目录存在
+    mkdir -p logs
+    
+    # 删除旧进程
     pm2 delete job-tracker 2>/dev/null || true
-    pm2 start server/server.js \
-        --name job-tracker \
-        --env-file .env \
-        --log /var/log/pm2-job-tracker.log
+    
+    # 使用 ecosystem 配置文件启动（自动加载 .env）
+    pm2 start ecosystem.config.cjs
     
     sleep 3
     
     if pm2 list | grep -q "job-tracker.*online"; then
         print_success "后端服务启动成功"
+        
+        # 显示启动日志
+        print_info "检查服务状态..."
+        sleep 2
+        pm2 logs job-tracker --lines 10 --nostream
     else
         print_error "后端服务启动失败"
-        pm2 logs job-tracker --lines 20
+        pm2 logs job-tracker --lines 30
         exit 1
     fi
 }
