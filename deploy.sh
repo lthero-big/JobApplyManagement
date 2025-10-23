@@ -265,13 +265,61 @@ fix_database() {
     
     print_info "正在修复数据库配置..."
     
+    # 检测可用的 PostgreSQL 用户
+    PG_ADMIN_USER=""
+    if id postgres &>/dev/null; then
+        PG_ADMIN_USER="postgres"
+    elif id postgresql &>/dev/null; then
+        PG_ADMIN_USER="postgresql"
+    else
+        print_warning "未找到 PostgreSQL 系统用户"
+        print_info "尝试使用 psql 直接连接..."
+        
+        # 尝试直接连接
+        if psql -U postgres -d postgres -c "SELECT 1;" &>/dev/null; then
+            PG_ADMIN_USER="postgres"
+        else
+            print_error "无法连接到 PostgreSQL"
+            print_info "请确保 PostgreSQL 已正确安装:"
+            echo "  sudo apt update"
+            echo "  sudo apt install -y postgresql postgresql-contrib"
+            echo ""
+            print_info "或者手动创建数据库:"
+            echo "  psql -U postgres"
+            echo "  CREATE DATABASE $DB_NAME;"
+            echo "  CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+            echo "  GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
+            return 1
+        fi
+    fi
+    
+    print_success "使用管理员用户: $PG_ADMIN_USER"
+    
     # 步骤1: 检查并创建数据库
     print_info "步骤 1/4: 检查数据库是否存在..."
-    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
+    
+    DB_EXISTS=0
+    if [ -n "$PG_ADMIN_USER" ]; then
+        if sudo -u "$PG_ADMIN_USER" psql -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
+            DB_EXISTS=1
+        fi
+    else
+        if psql -U postgres -lqt 2>/dev/null | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
+            DB_EXISTS=1
+        fi
+    fi
+    
+    if [ $DB_EXISTS -eq 1 ]; then
         print_success "数据库 $DB_NAME 已存在"
     else
         print_warning "数据库不存在，正在创建..."
-        sudo -u postgres psql -c "CREATE DATABASE $DB_NAME;" 2>&1
+        
+        if [ -n "$PG_ADMIN_USER" ]; then
+            sudo -u "$PG_ADMIN_USER" psql -c "CREATE DATABASE $DB_NAME;" 2>&1 | grep -v "^$"
+        else
+            psql -U postgres -c "CREATE DATABASE $DB_NAME;" 2>&1 | grep -v "^$"
+        fi
+        
         if [ $? -eq 0 ]; then
             print_success "数据库创建成功"
         else
@@ -282,15 +330,37 @@ fix_database() {
     
     # 步骤2: 检查并创建用户
     print_info "步骤 2/4: 检查用户是否存在..."
-    if sudo -u postgres psql -t -c "SELECT 1 FROM pg_user WHERE usename = '$DB_USER';" | grep -q 1; then
+    
+    USER_EXISTS=0
+    if [ -n "$PG_ADMIN_USER" ]; then
+        if sudo -u "$PG_ADMIN_USER" psql -t -c "SELECT 1 FROM pg_user WHERE usename = '$DB_USER';" 2>/dev/null | grep -q 1; then
+            USER_EXISTS=1
+        fi
+    else
+        if psql -U postgres -t -c "SELECT 1 FROM pg_user WHERE usename = '$DB_USER';" 2>/dev/null | grep -q 1; then
+            USER_EXISTS=1
+        fi
+    fi
+    
+    if [ $USER_EXISTS -eq 1 ]; then
         print_success "用户 $DB_USER 已存在"
         
         # 更新密码
         print_info "更新用户密码..."
-        sudo -u postgres psql -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>&1
+        if [ -n "$PG_ADMIN_USER" ]; then
+            sudo -u "$PG_ADMIN_USER" psql -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>&1 | grep -v "^$"
+        else
+            psql -U postgres -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>&1 | grep -v "^$"
+        fi
     else
         print_warning "用户不存在，正在创建..."
-        sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>&1
+        
+        if [ -n "$PG_ADMIN_USER" ]; then
+            sudo -u "$PG_ADMIN_USER" psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>&1 | grep -v "^$"
+        else
+            psql -U postgres -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>&1 | grep -v "^$"
+        fi
+        
         if [ $? -eq 0 ]; then
             print_success "用户创建成功"
         else
@@ -301,7 +371,9 @@ fix_database() {
     
     # 步骤3: 授予权限
     print_info "步骤 3/4: 配置数据库权限..."
-    sudo -u postgres psql << SQLEOF
+    
+    if [ -n "$PG_ADMIN_USER" ]; then
+        sudo -u "$PG_ADMIN_USER" psql << SQLEOF
 -- 授予数据库权限
 GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
 
@@ -319,6 +391,26 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $DB_USER;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $DB_USER;
 SQLEOF
+    else
+        psql -U postgres << SQLEOF
+-- 授予数据库权限
+GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
+
+-- 连接到数据库
+\c $DB_NAME
+
+-- 授予 schema 权限
+GRANT ALL ON SCHEMA public TO $DB_USER;
+
+-- 授予表权限
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $DB_USER;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;
+
+-- 设置默认权限
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $DB_USER;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $DB_USER;
+SQLEOF
+    fi
     
     print_success "权限配置完成"
     
@@ -358,9 +450,9 @@ SQLEOF
         print_error "修复后仍无法连接"
         echo ""
         print_info "请手动检查:"
-        echo "  1. sudo systemctl status postgresql"
-        echo "  2. sudo cat /etc/postgresql/*/main/pg_hba.conf | grep -v '^#'"
-        echo "  3. sudo tail -50 /var/log/postgresql/postgresql-*-main.log"
+        echo "  1. ps aux | grep postgres  # 检查进程"
+        echo "  2. systemctl status postgresql*  # 检查服务"
+        echo "  3. psql -U postgres -d postgres -c 'SELECT version();'  # 测试连接"
         exit 1
     fi
 }
