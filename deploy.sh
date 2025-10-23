@@ -148,13 +148,183 @@ test_database() {
     # 从 .env 读取配置
     source .env
     
+    print_info "配置信息:"
+    echo "  主机: $DB_HOST"
+    echo "  端口: $DB_PORT"
+    echo "  数据库: $DB_NAME"
+    echo "  用户: $DB_USER"
+    echo "  密码: ${DB_PASSWORD:0:3}***"
+    echo ""
+    
     if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" > /dev/null 2>&1; then
         print_success "数据库连接正常"
-    else
-        print_warning "数据库连接失败 (主机=$DB_HOST 用户=$DB_USER 数据库=$DB_NAME)"
-        read -p "是否继续部署？[y/N] " -n 1 -r
+        return 0
+    fi
+    
+    # 连接失败，提供修复选项
+    print_error "数据库连接失败"
+    echo ""
+    print_info "可能的原因:"
+    echo "  1. PostgreSQL 服务未运行"
+    echo "  2. 数据库不存在"
+    echo "  3. 用户名或密码错误"
+    echo "  4. 权限配置问题"
+    echo ""
+    
+    # 检查 PostgreSQL 服务
+    print_info "检查 PostgreSQL 服务状态..."
+    if ! sudo systemctl is-active --quiet postgresql; then
+        print_warning "PostgreSQL 未运行"
+        read -p "是否启动 PostgreSQL？[Y/n] " -n 1 -r
         echo
-        [[ ! $REPLY =~ ^[Yy]$ ]] && exit 1
+        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+            sudo systemctl start postgresql
+            sudo systemctl enable postgresql
+            sleep 2
+            print_success "PostgreSQL 已启动"
+        fi
+    else
+        print_success "PostgreSQL 正在运行"
+    fi
+    
+    echo ""
+    print_info "选择操作:"
+    echo "  1) 自动修复（创建数据库和用户）"
+    echo "  2) 重新配置 .env"
+    echo "  3) 跳过数据库检查，继续部署"
+    echo "  4) 退出部署"
+    echo ""
+    read -p "请选择 [1-4]: " -n 1 -r
+    echo
+    
+    case $REPLY in
+        1)
+            fix_database
+            ;;
+        2)
+            setup_env_interactive
+            test_database  # 递归测试
+            ;;
+        3)
+            print_warning "跳过数据库检查，继续部署"
+            print_warning "注意: 应用可能无法正常工作！"
+            ;;
+        4)
+            print_info "部署已取消"
+            exit 0
+            ;;
+        *)
+            print_error "无效选择"
+            exit 1
+            ;;
+    esac
+}
+
+# 自动修复数据库
+fix_database() {
+    print_header "自动修复数据库"
+    
+    source .env
+    
+    print_info "正在修复数据库配置..."
+    
+    # 步骤1: 检查并创建数据库
+    print_info "步骤 1/4: 检查数据库是否存在..."
+    if sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw "$DB_NAME"; then
+        print_success "数据库 $DB_NAME 已存在"
+    else
+        print_warning "数据库不存在，正在创建..."
+        sudo -u postgres psql -c "CREATE DATABASE $DB_NAME;" 2>&1
+        if [ $? -eq 0 ]; then
+            print_success "数据库创建成功"
+        else
+            print_error "数据库创建失败"
+            return 1
+        fi
+    fi
+    
+    # 步骤2: 检查并创建用户
+    print_info "步骤 2/4: 检查用户是否存在..."
+    if sudo -u postgres psql -t -c "SELECT 1 FROM pg_user WHERE usename = '$DB_USER';" | grep -q 1; then
+        print_success "用户 $DB_USER 已存在"
+        
+        # 更新密码
+        print_info "更新用户密码..."
+        sudo -u postgres psql -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>&1
+    else
+        print_warning "用户不存在，正在创建..."
+        sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';" 2>&1
+        if [ $? -eq 0 ]; then
+            print_success "用户创建成功"
+        else
+            print_error "用户创建失败"
+            return 1
+        fi
+    fi
+    
+    # 步骤3: 授予权限
+    print_info "步骤 3/4: 配置数据库权限..."
+    sudo -u postgres psql << SQLEOF
+-- 授予数据库权限
+GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
+
+-- 连接到数据库
+\c $DB_NAME
+
+-- 授予 schema 权限
+GRANT ALL ON SCHEMA public TO $DB_USER;
+
+-- 授予表权限
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $DB_USER;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO $DB_USER;
+
+-- 设置默认权限
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $DB_USER;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $DB_USER;
+SQLEOF
+    
+    print_success "权限配置完成"
+    
+    # 步骤4: 初始化数据库表
+    print_info "步骤 4/4: 检查数据库表..."
+    
+    TABLE_COUNT=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ')
+    
+    if [ "$TABLE_COUNT" = "0" ] || [ -z "$TABLE_COUNT" ]; then
+        print_warning "数据库为空，需要初始化表结构"
+        
+        # 查找初始化脚本
+        if [ -f "server/db/init.sql" ]; then
+            print_info "执行初始化脚本: server/db/init.sql"
+            PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -f server/db/init.sql
+            print_success "数据库表初始化完成"
+        elif [ -f "database/schema.sql" ]; then
+            print_info "执行初始化脚本: database/schema.sql"
+            PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -f database/schema.sql
+            print_success "数据库表初始化完成"
+        else
+            print_warning "未找到初始化脚本 (server/db/init.sql 或 database/schema.sql)"
+            print_info "将在首次启动时自动创建表"
+        fi
+    else
+        print_success "数据库已有 $TABLE_COUNT 个表"
+    fi
+    
+    echo ""
+    print_info "最终测试连接..."
+    if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "SELECT NOW();" > /dev/null 2>&1; then
+        print_success "✅ 数据库修复成功！"
+        echo ""
+        PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "SELECT NOW();"
+        echo ""
+    else
+        print_error "修复后仍无法连接"
+        echo ""
+        print_info "请手动检查:"
+        echo "  1. sudo systemctl status postgresql"
+        echo "  2. sudo cat /etc/postgresql/*/main/pg_hba.conf | grep -v '^#'"
+        echo "  3. sudo tail -50 /var/log/postgresql/postgresql-*-main.log"
+        exit 1
     fi
 }
 
