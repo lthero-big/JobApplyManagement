@@ -1,38 +1,85 @@
 version: '3.8'
 
-# Job Tracker Application with PostgreSQL database
-# To start database only: docker compose up -d db
-# To start database with Adminer (DB GUI): docker compose up -d db adminer
+# Job Tracker Application - 完整的前后端 + 数据库
+# 快速启动所有服务: docker compose up -d
+# 仅启动数据库: docker compose up -d db
+# 查看日志: docker compose logs -f
 
 services:
+  # PostgreSQL 数据库
   db:
     image: postgres:15-alpine
     container_name: job_tracker_db
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME:-job_tracker}
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_USER: ${DB_USER:-lthero}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-Www_159159}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
-      - job_tracker_db_data:/var/lib/postgresql/data
-      - ./server/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      # 数据持久化到宿主机（重要！）
+      - ./docker-data/postgresql:/var/lib/postgresql/data
+      # 初始化脚本
+      - ./server/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-job_tracker}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-lthero} -d ${DB_NAME:-job_tracker}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - job_tracker_network
 
+  # 应用服务器（前端 + 后端）
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: job_tracker_app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-job_tracker}
+      DB_USER: ${DB_USER:-lthero}
+      DB_PASSWORD: ${DB_PASSWORD:-Www_159159}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+    networks:
+      - job_tracker_network
+
+  # 数据库管理工具（可选）
   adminer:
     image: adminer:latest
     container_name: job_tracker_adminer
-    restart: always
+    restart: unless-stopped
     ports:
       - "8081:8080"
     depends_on:
       - db
     environment:
       ADMINER_DEFAULT_SERVER: db
+      ADMINER_DESIGN: nette
+    networks:
+      - job_tracker_network
+
+networks:
+  job_tracker_network:
+    driver: bridge
 
 volumes:
-  job_tracker_db_data:
+  # 使用命名卷作为备份（可选）
+  job_tracker_db_backup:

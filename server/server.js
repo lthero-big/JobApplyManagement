@@ -41,12 +41,16 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// 生产环境静态文件服务
+// 静态文件服务（生产环境）
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist')));
+  const distPath = path.join(__dirname, '../dist');
+  console.log('📁 静态文件目录:', distPath);
   
+  app.use(express.static(distPath));
+  
+  // 所有非 API 请求返回 index.html（支持前端路由）
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+    res.sendFile(path.join(distPath, 'index.html'));
   });
 }
 

@@ -1,0 +1,50 @@
+# Node modules
+node_modules
+npm-debug.log
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# 文档
+*.md
+!README.md
+
+# 编辑器
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 测试
+coverage
+.nyc_output
+
+# 构建产物（会在镜像中重新构建）
+dist
+
+# Docker 相关
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# 数据目录
+docker-data
+
+# 日志
+logs
+*.log
+
+# 临时文件
+tmp
+temp
+*.tmp

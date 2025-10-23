@@ -1,26 +1,38 @@
-# 使用官方 Node.js 运行时作为基础镜像
-FROM node:18-alpine
+# 多阶段构建 - 前端构建
+FROM node:18-alpine AS frontend-builder
 
-# 设置工作目录
 WORKDIR /app
 
-# 复制 package.json 和 package-lock.json（如果存在）
+# 复制前端相关文件
 COPY package*.json ./
-
-# 安装所有依赖（包括开发依赖，因为我们需要构建）
 RUN npm ci
 
-# 复制应用源代码
 COPY . .
 
-# 构建应用
+# 构建前端
 RUN npm run build
 
-# 安装 PostgreSQL 客户端用于数据库初始化
-RUN apk add --no-cache postgresql-client
+# 最终镜像
+FROM node:18-alpine
+
+WORKDIR /app
+
+# 安装生产依赖
+COPY package*.json ./
+RUN npm ci --only=production
+
+# 复制后端代码
+COPY server ./server
+
+# 复制前端构建产物
+COPY --from=frontend-builder /app/dist ./dist
 
 # 暴露端口
-EXPOSE 8080
+EXPOSE 3000
 
-# 启动应用（使用 preview 而不是 dev）
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0"]
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# 启动后端服务器（会同时服务前端静态文件）
+CMD ["node", "server/server.js"]

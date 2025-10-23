@@ -16,6 +16,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+logs/
 
 # Editor directories and files
 .vscode/*
@@ -40,8 +41,13 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Docker volumes
+# Docker volumes and data
 volumes/
+docker-data/
+
+# Backup files
+*.sql
+backup-*.tar.gz
 
 
 package-lock.json
