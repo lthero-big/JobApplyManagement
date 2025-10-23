@@ -170,7 +170,11 @@ start_backend() {
     print_header "启动后端服务"
     
     pm2 delete job-tracker 2>/dev/null || true
-    pm2 start server/server.js --name job-tracker
+    pm2 start server/server.js \
+        --name job-tracker \
+        --env-file .env \
+        --log /var/log/pm2-job-tracker.log
+    
     sleep 3
     
     if pm2 list | grep -q "job-tracker.*online"; then
