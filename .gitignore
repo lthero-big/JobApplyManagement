@@ -42,3 +42,6 @@ Thumbs.db
 
 # Docker volumes
 volumes/
+
+
+package-lock.json
