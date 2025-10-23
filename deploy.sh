@@ -197,9 +197,33 @@ test_database() {
         else
             print_error "PostgreSQL 未安装或未运行"
             echo ""
-            print_info "安装 PostgreSQL:"
-            echo "  sudo apt update"
-            echo "  sudo apt install -y postgresql postgresql-contrib"
+            print_warning "检测到 PostgreSQL 未安装"
+            
+            if [ -f "install-postgresql.sh" ]; then
+                read -p "是否立即安装 PostgreSQL？[Y/n] " -n 1 -r
+                echo
+                if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+                    print_info "开始安装 PostgreSQL..."
+                    bash install-postgresql.sh
+                    
+                    if [ $? -eq 0 ]; then
+                        print_success "PostgreSQL 安装成功"
+                        # 重新测试连接
+                        source .env
+                        if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" > /dev/null 2>&1; then
+                            print_success "数据库连接正常"
+                            return 0
+                        fi
+                    else
+                        print_error "安装失败"
+                    fi
+                fi
+            else
+                print_info "手动安装 PostgreSQL:"
+                echo "  sudo apt update"
+                echo "  sudo apt install -y postgresql postgresql-contrib"
+            fi
+            
             echo ""
             read -p "按回车继续..." 
         fi
@@ -226,27 +250,31 @@ test_database() {
     
     echo ""
     print_info "选择操作:"
-    echo "  1) 自动修复（创建数据库和用户）"
-    echo "  2) 重新配置 .env"
-    echo "  3) 跳过数据库检查，继续部署"
-    echo "  4) 退出部署"
+    echo "  1) 自动安装/配置 PostgreSQL（推荐）"
+    echo "  2) 手动修复数据库"
+    echo "  3) 重新配置 .env"
+    echo "  4) 跳过数据库检查，继续部署"
+    echo "  5) 退出部署"
     echo ""
-    read -p "请选择 [1-4]: " -n 1 -r
+    read -p "请选择 [1-5]: " -n 1 -r
     echo
     
     case $REPLY in
         1)
-            fix_database
+            install_postgresql
             ;;
         2)
+            fix_database
+            ;;
+        3)
             setup_env_interactive
             test_database  # 递归测试
             ;;
-        3)
+        4)
             print_warning "跳过数据库检查，继续部署"
             print_warning "注意: 应用可能无法正常工作！"
             ;;
-        4)
+        5)
             print_info "部署已取消"
             exit 0
             ;;
@@ -255,6 +283,41 @@ test_database() {
             exit 1
             ;;
     esac
+}
+
+# 自动安装和配置 PostgreSQL
+install_postgresql() {
+    print_header "自动安装/配置 PostgreSQL"
+    
+    if [ -f "install-postgresql.sh" ]; then
+        print_info "执行 PostgreSQL 安装脚本..."
+        bash install-postgresql.sh
+        
+        if [ $? -eq 0 ]; then
+            print_success "PostgreSQL 安装配置完成"
+            
+            # 重新测试连接
+            echo ""
+            print_info "重新测试数据库连接..."
+            sleep 2
+            
+            source .env
+            if PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" > /dev/null 2>&1; then
+                print_success "✅ 数据库连接成功！"
+            else
+                print_warning "连接仍然失败，尝试手动修复..."
+                fix_database
+            fi
+        else
+            print_error "PostgreSQL 安装失败"
+            print_info "尝试手动修复..."
+            fix_database
+        fi
+    else
+        print_error "未找到 install-postgresql.sh 脚本"
+        print_info "尝试手动修复..."
+        fix_database
+    fi
 }
 
 # 自动修复数据库
