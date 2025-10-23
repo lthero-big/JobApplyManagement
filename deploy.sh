@@ -173,18 +173,55 @@ test_database() {
     
     # 检查 PostgreSQL 服务
     print_info "检查 PostgreSQL 服务状态..."
-    if ! sudo systemctl is-active --quiet postgresql; then
-        print_warning "PostgreSQL 未运行"
+    
+    # 尝试多种可能的服务名称
+    PG_SERVICE=""
+    for service in postgresql postgresql@*-main postgresql-* postgres; do
+        if sudo systemctl list-units --all --type=service --full --no-pager | grep -q "$service.service"; then
+            PG_SERVICE=$service
+            break
+        fi
+    done
+    
+    if [ -z "$PG_SERVICE" ]; then
+        print_warning "未找到 PostgreSQL 服务"
+        print_info "尝试手动查找..."
+        
+        # 显示所有可能的 PostgreSQL 服务
+        print_info "系统中的 PostgreSQL 相关服务:"
+        sudo systemctl list-units --all --type=service --full --no-pager | grep -i postgres || echo "  无"
+        
+        # 检查 PostgreSQL 是否通过其他方式运行
+        if pgrep -x postgres > /dev/null || pgrep -x postgresql > /dev/null; then
+            print_success "PostgreSQL 进程正在运行（非 systemd 管理）"
+        else
+            print_error "PostgreSQL 未安装或未运行"
+            echo ""
+            print_info "安装 PostgreSQL:"
+            echo "  sudo apt update"
+            echo "  sudo apt install -y postgresql postgresql-contrib"
+            echo ""
+            read -p "按回车继续..." 
+        fi
+    elif sudo systemctl is-active --quiet "$PG_SERVICE"; then
+        print_success "PostgreSQL 正在运行 (服务: $PG_SERVICE)"
+    else
+        print_warning "PostgreSQL 未运行 (服务: $PG_SERVICE)"
         read -p "是否启动 PostgreSQL？[Y/n] " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            sudo systemctl start postgresql
-            sudo systemctl enable postgresql
-            sleep 2
-            print_success "PostgreSQL 已启动"
+            sudo systemctl start "$PG_SERVICE"
+            sudo systemctl enable "$PG_SERVICE"
+            sleep 3
+            
+            if sudo systemctl is-active --quiet "$PG_SERVICE"; then
+                print_success "PostgreSQL 已启动"
+            else
+                print_error "PostgreSQL 启动失败"
+                sudo systemctl status "$PG_SERVICE" --no-pager
+                return 1
+            fi
         fi
-    else
-        print_success "PostgreSQL 正在运行"
     fi
     
     echo ""
