@@ -63,9 +63,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 启动服务器
-app.listen(PORT, () => {
-  console.log(`🚀 服务器运行在 http://localhost:${PORT}`);
+// 启动服务器（只监听 127.0.0.1，增强安全性）
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`🚀 服务器运行在 http://127.0.0.1:${PORT}`);
+  console.log(`🔒 安全模式：仅监听 127.0.0.1（通过 Nginx 反向代理访问）`);
   console.log(`📝 API 文档:`);
   console.log(`   - POST /api/auth/register - 用户注册`);
   console.log(`   - POST /api/auth/login - 用户登录`);
