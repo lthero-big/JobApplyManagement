@@ -1,99 +1,38 @@
 version: '3.8'
 
-# Combined compose: app + minimal Supabase services for local development.
-# To start everything: docker compose up -d
+# Job Tracker Application with PostgreSQL database
+# To start database only: docker compose up -d db
+# To start database with Adminer (DB GUI): docker compose up -d db adminer
 
 services:
-  app:
-    build: .
-    ports:
-      - "8080:8080"
-    environment:
-      - NODE_ENV=production
-      - VITE_SUPABASE_URL=${VITE_SUPABASE_URL:-http://localhost:54321}
-      - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY:-anon}
-    depends_on:
-      - db
-      - gotrue
-    volumes:
-      - ./src/supabase/migrations:/app/src/supabase/migrations
-
   db:
     image: postgres:15-alpine
+    container_name: job_tracker_db
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-job_applications_db}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-job_tracker}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     ports:
-      # map to host 54321 to avoid conflicts with host Postgres
-      - "54321:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
-      - supabase_db_data:/var/lib/postgresql/data
-      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
-
-  # Supabase core components (simplified, for development only)
-  gotrue:
-    image: supabase/gotrue:latest
-    profiles:
-      - supabase
-    depends_on:
-      - db
-    environment:
-      GOTRUE_SITE_URL: ${VITE_SUPABASE_URL:-http://localhost:54321}
-      GOTRUE_JWT_SECRET: ${GOTRUE_JWT_SECRET:-example_jwt_secret}
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-job_applications_db}
-      ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-anon}
-      SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-service_role}
-    ports:
-      - "9999:9999"
-
-  realtime:
-    profiles:
-      - supabase
-    image: supabase/realtime:latest
-    depends_on:
-      - db
-    environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-job_applications_db}
-      DB_USER: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      PORT: 4000
-    ports:
-      - "4000:4000"
-
-  postgrest:
-    profiles:
-      - supabase
-    image: postgrest/postgrest:latest
-    depends_on:
-      - db
-    environment:
-      PGRST_DB_URI: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-job_applications_db}
-      PGRST_DB_SCHEMA: public
-      PGRST_DB_ANON_ROLE: anon
-    ports:
-      - "3000:3000"
-
-  storage:
-    profiles:
-      - supabase
-    image: supabase/storage-api:latest
-    depends_on:
-      - db
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-job_applications_db}
-      ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-anon}
-      SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-service_role}
-    ports:
-      - "5000:5000"
+      - job_tracker_db_data:/var/lib/postgresql/data
+      - ./server/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-job_tracker}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   adminer:
     image: adminer:latest
+    container_name: job_tracker_adminer
     restart: always
     ports:
       - "8081:8080"
+    depends_on:
+      - db
+    environment:
+      ADMINER_DEFAULT_SERVER: db
 
 volumes:
-  supabase_db_data:
+  job_tracker_db_data:

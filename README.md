@@ -2,13 +2,148 @@
 
 # 简历投递管理器
 
-> 打造一个专为应届毕业生设计的求职管理系统，旨在解决求职过程中简历投递混乱、进度跟踪困难的核心痛点
+> 打造一个专为应届毕业生设计的求职管理系统，采用前后端分离架构，支持用户注册登录，数据存储在服务器数据库中。
 
+## ✨ 主要特性
 
+- 🔐 **用户系统**: 完整的注册、登录、认证功能
+- 💾 **数据库存储**: PostgreSQL 数据库，数据安全可靠
+- 🔒 **数据隔离**: 每个用户拥有独立的数据空间
+- 📊 **投递记录管理**: 跟踪所有求职申请的状态和进度
+- 📈 **可视化看板**: 面试状态看板，一目了然
+- 🔍 **智能筛选**: 多维度筛选和搜索功能
+- 📝 **状态历史**: 完整的状态变更历史记录
+- 🎨 **现代化 UI**: 基于 shadcn/ui 的精美界面
 
-# 效果图
+## 🏗️ 技术栈
+
+### 前端
+- ⚛️ React 18
+- ⚡ Vite
+- 🎨 TailwindCSS + shadcn/ui
+- 🔄 React Query
+- 🧭 React Router
+
+### 后端
+- 🟢 Node.js + Express
+- 🗄️ PostgreSQL
+- 🔑 JWT 认证
+- 🔐 bcrypt 密码加密
+
+## 🚀 快速开始
+
+### 方式一：使用 Docker（推荐）
+
+```bash
+# 1. 安装依赖
+npm install
+
+# 2. 启动数据库
+npm run docker:db:up
+
+# 3. 同时启动前后端
+npm run dev:all
+
+# 4. 访问应用
+# 前端: http://localhost:5173
+# 后端: http://localhost:3000
+# 数据库管理: http://localhost:8081
+```
+
+### 方式二：使用本地 PostgreSQL
+
+```bash
+# 1. 安装 PostgreSQL
+# macOS: brew install postgresql@15
+# Ubuntu: sudo apt install postgresql-15
+
+# 2. 创建数据库
+createdb job_tracker
+
+# 3. 初始化表结构
+psql -d job_tracker -f server/db/init.sql
+
+# 4. 安装依赖并启动
+npm install
+npm run dev:all
+```
+
+详细设置指南请查看 [QUICKSTART.md](QUICKSTART.md) 或 [SETUP.md](SETUP.md)
+
+## 📸 效果图
 
 ![img](image.png)
+
+## 📖 使用说明
+
+1. **注册账户**: 首次使用需要注册，填写用户名、邮箱和密码
+2. **登录系统**: 使用注册的账户登录
+3. **添加记录**: 点击"新增投递记录"添加求职申请
+4. **更新状态**: 实时更新申请的进度状态
+5. **查看看板**: 切换到"面试状态看板"查看可视化进度
+6. **筛选搜索**: 使用筛选功能快速找到目标记录
+
+## 🗂️ 项目结构
+
+```
+project/
+├── server/                 # 后端代码
+│   ├── config/            # 配置文件
+│   ├── middleware/        # 中间件
+│   ├── routes/            # API 路由
+│   ├── db/                # 数据库脚本
+│   └── server.js          # 服务器入口
+├── src/                   # 前端代码
+│   ├── api/              # API 调用
+│   ├── components/       # React 组件
+│   ├── context/          # 状态管理
+│   ├── pages/            # 页面
+│   └── ...
+├── .env                   # 环境变量
+├── docker-compose.yml     # Docker 配置
+├── SETUP.md              # 详细设置指南
+├── QUICKSTART.md         # 快速启动指南
+└── package.json
+```
+
+## 🔑 API 接口
+
+### 认证接口
+- `POST /api/auth/register` - 用户注册
+- `POST /api/auth/login` - 用户登录  
+- `GET /api/auth/me` - 获取当前用户信息
+
+### 求职申请接口（需要认证）
+- `GET /api/applications` - 获取所有申请
+- `POST /api/applications` - 创建新申请
+- `PUT /api/applications/:id` - 更新申请
+- `DELETE /api/applications/:id` - 删除申请
+
+## 🔒 安全特性
+
+- ✅ 密码 bcrypt 加密存储
+- ✅ JWT Token 认证
+- ✅ 数据库参数化查询防注入
+- ✅ CORS 跨域保护
+- ✅ 用户数据完全隔离
+
+## 📝 开发命令
+
+```bash
+# 开发环境
+npm run dev              # 启动前端
+npm run server:dev       # 启动后端（热重载）
+npm run dev:all          # 同时启动前后端
+
+# 数据库
+npm run docker:db:up     # 启动 Docker 数据库
+npm run docker:db:down   # 停止数据库
+npm run db:init          # 初始化数据库表
+
+# 构建
+npm run build            # 构建生产版本
+npm run preview          # 预览生产版本
+```
 
 
 
